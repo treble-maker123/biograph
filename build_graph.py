@@ -1,11 +1,11 @@
-from utils.logger import log
-from utils.hetio import load_edges, load_nodes
+from utils import Node, Edge
 from utils.graph import build_graph
-
+from utils.hetio import NODES_CHECKPOINT as HETIO_NODES_CHECKPOINT, EDGES_CHECKPOINT as HETIO_EDGE_CHECKPOINT
+from utils.logger import log
 
 if __name__ == "__main__":
-    nodes = load_nodes()
-    edges = load_edges()
+    nodes = Node.deserialize_bunch(HETIO_NODES_CHECKPOINT)
+    edges = Edge.deserialize_bunch(HETIO_EDGE_CHECKPOINT)
 
     log.info("Building graph...")
     graph = build_graph(nodes, edges)

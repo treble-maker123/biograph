@@ -1,3 +1,4 @@
+import os
 from typing import List, Dict
 
 import pandas as pd
@@ -7,11 +8,9 @@ from tqdm import tqdm
 from utils.edge import Edge
 from utils.logger import log
 from utils.node import Node
-import os
-import pickle
 
-NODES_CHECKPOINT = "outputs/hetio_nodes.checkpoint"
-EDGES_CHECKPOINT = "outputs/hetio_edges.checkpoint"
+NODES_CHECKPOINT = "outputs/hetio_nodes.checkpoint.json"
+EDGES_CHECKPOINT = "outputs/hetio_edges.checkpoint.json"
 
 
 def build_nodes(hetio: Dict, **kwargs) -> List[Node]:
@@ -20,7 +19,7 @@ def build_nodes(hetio: Dict, **kwargs) -> List[Node]:
 
     if not force_rebuild:
         if os.path.exists(NODES_CHECKPOINT):
-            return load_nodes()
+            return Node.deserialize_bunch(NODES_CHECKPOINT)
         else:
             log.info("Node checkpoint does not exist, building nodes.")
 
@@ -34,19 +33,9 @@ def build_nodes(hetio: Dict, **kwargs) -> List[Node]:
 
     if save_checkpoint:
         log.info("Checkpointing nodes...")
-        with open(NODES_CHECKPOINT, "wb") as file:
-            pickle.dump(nodes, file)
+        Node.serialize_bunch(nodes, NODES_CHECKPOINT)
 
     return nodes
-
-
-def load_nodes() -> List[Node]:
-    if os.path.exists(NODES_CHECKPOINT):
-        log.info("Loading nodes from checkpoint.")
-        with open(NODES_CHECKPOINT, "rb") as file:
-            return pickle.load(file)
-    else:
-        raise FileNotFoundError("No node checkpoint found, run build_hetio_edges.py to generate nodes!")
 
 
 def build_edges(hetio: Dict, nodes: List[Node], **kwargs) -> List[Edge]:
@@ -55,7 +44,7 @@ def build_edges(hetio: Dict, nodes: List[Node], **kwargs) -> List[Edge]:
 
     if not force_rebuild:
         if os.path.exists(EDGES_CHECKPOINT):
-            return load_edges()
+            return Edge.deserialize_bunch(EDGES_CHECKPOINT, nodes)
         else:
             log.info("Edge checkpoint does not exist, building edges.")
 
@@ -77,27 +66,17 @@ def build_edges(hetio: Dict, nodes: List[Node], **kwargs) -> List[Edge]:
         if direction == "forward":
             edges.append(forward)
         elif direction == "both":
-            backward = Edge(dst_node, src_node, kind, sources)
+            backward = Edge(dst_node, src_node, kind + "_inv", sources)
             edges.append(forward)
             edges.append(backward)
 
     if save_checkpoint:
         log.info("Checkpointing edges...")
-        with open(EDGES_CHECKPOINT, "wb") as file:
-            pickle.dump(edges, file)
+        Edge.serialize_bunch(edges, EDGES_CHECKPOINT)
 
     assert len(edges) > len(hetio["edges"])
 
     return edges
-
-
-def load_edges() -> List[Edge]:
-    if os.path.exists(EDGES_CHECKPOINT):
-        log.info("Loading edges from checkpoint.")
-        with open(EDGES_CHECKPOINT, "rb") as file:
-            return pickle.load(file)
-    else:
-        raise FileNotFoundError("No edge checkpoint found, run build_hetio_edges.py to generate the edges!")
 
 
 def add_anatomy_metadata(hetio: Dict, nodes: List[Node]) -> List[Node]:
@@ -201,9 +180,18 @@ def add_disease_metadata(hetio: Dict, nodes: List[Node], do: Ontology) -> List[N
 
     for disease in tqdm(diseases):
         disease_id = disease["identifier"]
-        xref = do[disease_id].other["xref"]
+
+        try:
+            xref = do[disease_id].other["xref"]
+        except Exception as e:
+            log.info(f"Error looking up {disease_id}, skipping.")
+            continue
+
         umls_cuis = list(filter(lambda x: x[:8] == "UMLS_CUI", xref))
+        umls_cuis = list(map(lambda x: x[9:], umls_cuis))
+
         mesh_ids = list(filter(lambda x: x[:4] == "MESH", xref))
+        mesh_ids = list(map(lambda x: x[5:], mesh_ids))
 
         if len(umls_cuis) + len(mesh_ids) > 0:
             matching_nodes = list(filter(lambda x: x.identifier == disease_id, nodes))

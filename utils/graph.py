@@ -1,13 +1,12 @@
-from pdb import set_trace
+import os
+import pickle
 from typing import List
 
 from networkx import MultiDiGraph
 
 from utils.edge import Edge
-from utils.node import Node
-import os
-import pickle
 from utils.logger import log
+from utils.node import Node
 
 GRAPH_CHECKPOINT = "outputs/graph.checkpoint"
 
