@@ -15,12 +15,12 @@ Node types:
      'Symptom']
 """
 from utils import load_hetio, load_umls, load_disease_ontology, log
-from utils.hetio import build_nodes, build_edges, add_disease_metadata
+from utils.hetio import build_nodes, build_edges
 
 UMLS_FILE_PATH = "MRCONSO.RRF"
 HETIO_FILE_PATH = "integrate/data/hetnet.json.bz2"
 
-force_build = True
+force_build = False
 
 if __name__ == "__main__":
     log.info("Building het.io from file.")
@@ -34,10 +34,7 @@ if __name__ == "__main__":
     umls = load_umls(UMLS_FILE_PATH)
 
     log.info("Building het.io nodes.")
-    hetio_nodes = build_nodes(hetio, force_rebuild=force_build)
-
-    # hetio_nodes = add_compound_metadata(hetio, hetio_nodes, umls)
-    hetio_nodes = add_disease_metadata(hetio, hetio_nodes, do)
+    hetio_nodes = build_nodes(hetio, force_rebuild=force_build, umls=umls, do=do)
 
     log.info("Building het.io edges.")
     hetio_edges = build_edges(hetio, hetio_nodes, force_rebuild=force_build)

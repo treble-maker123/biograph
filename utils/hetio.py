@@ -31,6 +31,15 @@ def build_nodes(hetio: Dict, **kwargs) -> List[Node]:
 
     assert len(nodes) == len(hetio["nodes"])
 
+    umls = kwargs.get("umls", None)
+    do = kwargs.get("do", None)
+
+    if umls is not None:
+        nodes = add_compound_metadata(hetio, nodes, umls)
+
+    if do is not None:
+        nodes = add_disease_metadata(hetio, nodes, do)
+
     if save_checkpoint:
         log.info("Checkpointing nodes...")
         Node.serialize_bunch(nodes, NODES_CHECKPOINT)

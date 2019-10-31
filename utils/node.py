@@ -88,14 +88,17 @@ class Node(object):
     @classmethod
     def serialize_bunch(cls, nodes: List['Node'], output_path: str) -> None:
         metadata_set = list(map(lambda x: x.metadata, nodes))
-        json.dump(output_path, metadata_set)
+
+        with open(output_path, "w") as file:
+            json.dump(metadata_set, file)
 
     @classmethod
     def deserialize_bunch(cls, json_path: str) -> List['Node']:
         if not os.path.exists(json_path):
             raise FileNotFoundError(f"Node file at {json_path} does not exist!")
 
-        metadata_set = json.load(json_path)
+        with open(json_path, "r") as file:
+            metadata_set = json.load(file)
         nodes = []
 
         for metadata in metadata_set:

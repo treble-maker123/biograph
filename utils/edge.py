@@ -2,6 +2,7 @@ import json
 import os
 from copy import deepcopy
 from typing import Union, List, Dict
+from pdb import set_trace
 
 from utils.node import Node
 
@@ -49,26 +50,27 @@ class Edge(object):
     @classmethod
     def serialize_bunch(cls, edges: List['Edge'], output_path: str) -> None:
         metadata_set = list(map(lambda x: x.metadata, edges))
-        json.dump(output_path, metadata_set)
+        with open(output_path, "w") as file:
+            json.dump(metadata_set, file)
 
     @classmethod
     def deserialize_bunch(cls, json_path: str, nodes: List[Node]) -> List['Edge']:
         if not os.path.exists(json_path):
             raise FileNotFoundError(f"Edge file at {json_path} does not exist!")
 
-        metadata_set = json.load(json_path)
+        with open(json_path, "r") as file:
+            metadata_set = json.load(file)
         edges = []
 
         for metadata in metadata_set:
             source_node = list(filter(lambda x:
-                                      x.identifier == metadata["source"].identifier and
-                                      x.name == metadata["source"].name and
-                                      x.kind == metadata["source"].kind, nodes))
-
+                                      x.identifier == metadata["source"][0] and
+                                      x.name == metadata["source"][1] and
+                                      x.kind == metadata["source"][2], nodes))
             destination_node = list(filter(lambda x:
-                                           x.identifier == metadata["destination"].identifier and
-                                           x.name == metadata["destination"].name and
-                                           x.kind == metadata["destination"].kind, nodes))
+                                           x.identifier == metadata["destination"][0] and
+                                           x.name == metadata["destination"][1] and
+                                           x.kind == metadata["destination"][2], nodes))
 
             assert len(source_node) == 1, f"Expecting 1 source node, found {len(source_node)}."
             assert len(destination_node) == 1, f"Expecting 1 destination node, found {len(destination_node)}."

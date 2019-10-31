@@ -1,6 +1,7 @@
 from utils import Node
 from utils.hetio import NODES_CHECKPOINT as HETIO_NODES_CHECKPOINT
 from utils.repodb import NODES_CHECKPOINT as REPODB_NODES_CHECKPOINT
+from pdb import set_trace
 
 if __name__ == "__main__":
     hetio_nodes = Node.deserialize_bunch(HETIO_NODES_CHECKPOINT)

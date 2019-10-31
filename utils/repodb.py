@@ -44,13 +44,11 @@ def build_nodes(repodb: pd.DataFrame, **kwargs) -> List[Node]:
         node = Node(disease_id, disease_names[0], kind="Disease", sources=["RepoDB"])
         nodes.append(node)
 
-    log.info(f"Built {len(nodes)} from RepoDB.")
+    log.info(f"Built {len(nodes)} nodes from RepoDB.")
 
     if save_checkpoint:
         log.info("Checkpointing nodes...")
         Node.serialize_bunch(nodes, NODES_CHECKPOINT)
-        with open(NODES_CHECKPOINT, "wb") as file:
-            pickle.dump(nodes, file)
 
     return nodes
 
