@@ -1,3 +1,5 @@
+import bz2
+import json
 import os
 from typing import List, Dict
 
@@ -9,11 +11,47 @@ from utils.edge import Edge
 from utils.logger import log
 from utils.node import Node
 
+"""
+meta-edges in het.io
+
+['Anatomy', 'Gene', 'downregulates', 'both'],
+ ['Anatomy', 'Gene', 'expresses', 'both'],
+ ['Anatomy', 'Gene', 'upregulates', 'both'],
+ ['Compound', 'Compound', 'resembles', 'both'],
+ ['Compound', 'Disease', 'palliates', 'both'],
+ ['Compound', 'Disease', 'treats', 'both'],
+ ['Compound', 'Gene', 'binds', 'both'],
+ ['Compound', 'Gene', 'downregulates', 'both'],
+ ['Compound', 'Gene', 'upregulates', 'both'],
+ ['Compound', 'Side Effect', 'causes', 'both'],
+ ['Disease', 'Anatomy', 'localizes', 'both'],
+ ['Disease', 'Disease', 'resembles', 'both'],
+ ['Disease', 'Gene', 'associates', 'both'],
+ ['Disease', 'Gene', 'downregulates', 'both'],
+ ['Disease', 'Gene', 'upregulates', 'both'],
+ ['Disease', 'Symptom', 'presents', 'both'],
+ ['Gene', 'Biological Process', 'participates', 'both'],
+ ['Gene', 'Cellular Component', 'participates', 'both'],
+ ['Gene', 'Gene', 'covaries', 'both'],
+ ['Gene', 'Gene', 'interacts', 'both'],
+ ['Gene', 'Gene', 'regulates', 'forward'],
+ ['Gene', 'Molecular Function', 'participates', 'both'],
+ ['Gene', 'Pathway', 'participates', 'both'],
+ ['Pharmacologic Class', 'Compound', 'includes', 'both']
+"""
+
 NODES_CHECKPOINT = "outputs/hetio_nodes.checkpoint.json"
 EDGES_CHECKPOINT = "outputs/hetio_edges.checkpoint.json"
 
+HETIO_FILE_PATH = "data/integrate/data/hetnet.json.bz2"
 
-def build_nodes(hetio: Dict, **kwargs) -> List[Node]:
+
+def load_hetio(file_path: str) -> Dict:
+    with bz2.open(file_path) as file:
+        return json.load(file)
+
+
+def build_nodes(**kwargs) -> List[Node]:
     force_rebuild = kwargs.get("force_rebuild", False)
     save_checkpoint = kwargs.get("save_checkpoint", True)
 
@@ -23,6 +61,8 @@ def build_nodes(hetio: Dict, **kwargs) -> List[Node]:
         else:
             log.info("Node checkpoint does not exist, building nodes.")
 
+    hetio = load_hetio(HETIO_FILE_PATH)
+
     nodes = [Node(h["identifier"], h["name"], h["kind"],
                   h["data"].get("source", None) or h["data"].get("sources", []),
                   h["data"].get("license", None),
@@ -31,15 +71,6 @@ def build_nodes(hetio: Dict, **kwargs) -> List[Node]:
 
     assert len(nodes) == len(hetio["nodes"])
 
-    umls = kwargs.get("umls", None)
-    do = kwargs.get("do", None)
-
-    if umls is not None:
-        nodes = add_compound_metadata(hetio, nodes, umls)
-
-    if do is not None:
-        nodes = add_disease_metadata(hetio, nodes, do)
-
     if save_checkpoint:
         log.info("Checkpointing nodes...")
         Node.serialize_bunch(nodes, NODES_CHECKPOINT)
@@ -47,7 +78,7 @@ def build_nodes(hetio: Dict, **kwargs) -> List[Node]:
     return nodes
 
 
-def build_edges(hetio: Dict, nodes: List[Node], **kwargs) -> List[Edge]:
+def build_edges(nodes: List[Node] = None, **kwargs) -> List[Edge]:
     force_rebuild = kwargs.get("force_rebuild", False)
     save_checkpoint = kwargs.get("save_checkpoint", True)
 
@@ -56,6 +87,8 @@ def build_edges(hetio: Dict, nodes: List[Node], **kwargs) -> List[Edge]:
             return Edge.deserialize_bunch(EDGES_CHECKPOINT, nodes)
         else:
             log.info("Edge checkpoint does not exist, building edges.")
+
+    hetio = load_hetio(HETIO_FILE_PATH)
 
     edges = []
 
@@ -88,42 +121,7 @@ def build_edges(hetio: Dict, nodes: List[Node], **kwargs) -> List[Edge]:
     return edges
 
 
-def add_anatomy_metadata(hetio: Dict, nodes: List[Node]) -> List[Node]:
-    """
-    Anatomy (source: Uberon)
-
-        Ontolgoy URL: http://www.obofoundry.org/ontology/uberon.html
-        Because pronto.Ontology throws error with the Uberon ontology, directly using the MeSH ID.
-
-        Structure from het.io looks like this,
-
-        {'kind': 'Anatomy',
-        'identifier': 'UBERON:0001533',
-        'name': 'subclavian artery',
-        'data': {'source': 'Uberon',
-        'license': 'CC BY 3.0',
-        'url': 'http://purl.obolibrary.org/obo/UBERON_0001533',
-        'mesh_id': 'D013348'}
-    """
-    log.info("Loading anatomy metadata.")
-
-    anatomies = list(filter(lambda x: x["kind"] == "Anatomy", hetio["nodes"]))
-    assert len(anatomies) > 0
-
-    for a in tqdm(anatomies):
-        matching_nodes = list(filter(lambda x: x.identifier == a["identifier"], nodes))
-        assert len(matching_nodes) == 1
-
-        node = matching_nodes[0]
-        node.add_mesh_id(a["data"]["mesh_id"])
-        assert node.mesh_ids == [a["data"]["mesh_id"]]
-
-    log.info("Finished loading anatomy metadata.")
-
-    return nodes
-
-
-def add_compound_metadata(hetio: Dict, nodes: List[Node], umls: pd.DataFrame) -> List[Node]:
+def add_compound_metadata(nodes: List[Node], umls: pd.DataFrame) -> List[Node]:
     """
     Compound (source: DrugBank)
 
@@ -139,6 +137,7 @@ def add_compound_metadata(hetio: Dict, nodes: List[Node], umls: pd.DataFrame) ->
         'url': 'http://www.drugbank.ca/drugs/DB00201'}}
     """
     log.info("Loading compounds metadata.")
+    hetio = load_hetio(HETIO_FILE_PATH)
 
     compounds = list(filter(lambda x: x["kind"] == "Compound", hetio["nodes"]))
     assert len(compounds) > 0
@@ -156,8 +155,8 @@ def add_compound_metadata(hetio: Dict, nodes: List[Node], umls: pd.DataFrame) ->
             assert len(matching_nodes) == 1
 
             node = matching_nodes[0]
-            node.add_cui(umls_cuis)
-            assert len(node.umls_cuis) == len(umls_cuis)
+            node.add_alt_id(umls_cuis, id_type="UMLS")
+            assert len(node.umls_ids) == len(umls_cuis)
         else:
             counter += 1
 
@@ -168,7 +167,7 @@ def add_compound_metadata(hetio: Dict, nodes: List[Node], umls: pd.DataFrame) ->
     return nodes
 
 
-def add_disease_metadata(hetio: Dict, nodes: List[Node], do: Ontology) -> List[Node]:
+def add_disease_metadata(nodes: List[Node], do: Ontology) -> List[Node]:
     """
     Disease (source: Disease Ontology)
 
@@ -181,6 +180,7 @@ def add_disease_metadata(hetio: Dict, nodes: List[Node], do: Ontology) -> List[N
         'url': 'http://purl.obolibrary.org/obo/DOID_14227'}}
     """
     log.info("Loading diseases metadata.")
+    hetio = load_hetio(HETIO_FILE_PATH)
 
     diseases = list(filter(lambda x: x["kind"] == "Disease", hetio["nodes"]))
     assert len(diseases) > 0
@@ -207,17 +207,45 @@ def add_disease_metadata(hetio: Dict, nodes: List[Node], do: Ontology) -> List[N
             assert len(matching_nodes) == 1
 
             node = matching_nodes[0]
-            node.add_cui(umls_cuis)
-            node.add_mesh_id(mesh_ids)
-            assert len(node.umls_cuis) == len(umls_cuis)
+            node.add_alt_id(umls_cuis, id_type="UMLS")
+            node.add_alt_id(mesh_ids, id_type="MESH")
+            assert len(node.umls_ids) == len(umls_cuis)
             assert len(node.mesh_ids) == len(mesh_ids)
         else:
             counter += 1
 
-    print(f"{counter}/{len(diseases)} diseases do not have UMLS CUI or MeSH ID.")
+    log.info(f"{counter}/{len(diseases)} diseases do not have UMLS CUI or MeSH ID.")
 
     log.info("Finished loading diseases  metadata.")
 
+    return nodes
+
+
+def add_gene_metadata(nodes: List[Node]) -> List[Node]:
+    """
+    Structure from het.io looks like this,
+        {'kind': 'Gene',
+        'identifier': 5345,
+        'name': 'SERPINF2',
+        'data': {'description': 'serpin peptidase inhibitor, clade F (alpha-2 antiplasmin, pigment epithelium derived ',
+        'source': 'Entrez Gene',
+        'license': 'CC0 1.0',
+        'url': 'http://identifiers.org/ncbigene/5345',
+        'chromosome': '17'}}
+    """
+    # TODO: Map gene metadata to UMLS
+    return nodes
+
+
+def add_pathway_metadata(nodes: List[Node]) -> List[Node]:
+    """
+    Structure from het.io looks like this,
+        {'kind': 'Pathway',
+        'identifier': 'PC7_3805',
+        'name': 'FCERI mediated Ca+2 mobilization',
+        'data': {'license': 'CC BY 4.0', 'source': 'Reactome via Pathway Commons'}}
+    """
+    # TODO: Map pathway metadata to UMLS
     return nodes
 
 # TODO: Metadata to be added

@@ -1,5 +1,4 @@
 import os
-import pickle
 from typing import List
 
 import pandas as pd
@@ -12,8 +11,10 @@ from utils.node import Node
 NODES_CHECKPOINT = "outputs/repodb_nodes.checkpoint.json"
 EDGES_CHECKPOINT = "outputs/repodb_edges.checkpoint.json"
 
+REPODB_FILE_PATH = "data/repodb.csv"
 
-def build_nodes(repodb: pd.DataFrame, **kwargs) -> List[Node]:
+
+def build_nodes(**kwargs) -> List[Node]:
     force_rebuild = kwargs.get("force_rebuild", False)
     save_checkpoint = kwargs.get("save_checkpoint", True)
 
@@ -22,6 +23,8 @@ def build_nodes(repodb: pd.DataFrame, **kwargs) -> List[Node]:
             return Node.deserialize_bunch(NODES_CHECKPOINT)
         else:
             log.info("Node checkpoint does not exist, building nodes.")
+
+    repodb = pd.read_csv(REPODB_FILE_PATH)
 
     nodes = []
 
@@ -53,7 +56,7 @@ def build_nodes(repodb: pd.DataFrame, **kwargs) -> List[Node]:
     return nodes
 
 
-def build_edges(repodb: pd.DataFrame, nodes: List[Node], **kwargs) -> List[Edge]:
+def build_edges(nodes: List[Node], **kwargs) -> List[Edge]:
     """
     According to https://prsinfo.clinicaltrials.gov/definitions.html, we cannot assume that Suspended, Terminated, or
     Withdrawn implies failed trial.
@@ -67,6 +70,8 @@ def build_edges(repodb: pd.DataFrame, nodes: List[Node], **kwargs) -> List[Edge]
             return Edge.deserialize_bunch(EDGES_CHECKPOINT, nodes)
         else:
             log.info("Edge checkpoint does not exist, building edges.")
+
+    repodb = pd.read_csv(REPODB_FILE_PATH)
 
     edges = []
 

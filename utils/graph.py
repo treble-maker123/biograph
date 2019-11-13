@@ -8,6 +8,8 @@ from utils.edge import Edge
 from utils.logger import log
 from utils.node import Node
 
+GRAPH_NODES_CHECKPOINT = "outputs/graph_nodes.checkpoint.json"
+GRAPH_EDGES_CHECKPOINT = "outputs/graph_edges.checkpoint.json"
 GRAPH_CHECKPOINT = "outputs/graph.checkpoint"
 
 
