@@ -1,9 +1,7 @@
 import pandas as pd
 from pronto import Ontology
-from pdb import set_trace
 import os
 import sqlite3
-from typing import Tuple
 
 
 from utils.logger import log
@@ -14,6 +12,7 @@ UMLS_DB_NAME = "data/umls.sqlite"
 
 def load_umls() -> str:
     log.info("Loading UMLS file.")
+
     columns = ["CUI", "LAT", "TS", "LUI", "STT", "SUI", "ISPREF", "AUI", "SAUI", "SCUI", "SDUI", "SAB", "TTY", "CODE",
                "STR", "SRL", "SUPPRESS", "CVF", "MISC"]
 
@@ -21,8 +20,6 @@ def load_umls() -> str:
         with sqlite3.connect(UMLS_DB_NAME) as conn:
             umls = pd.read_csv(UMLS_FILE_PATH, delimiter="|", names=columns, index_col=False)
             umls.to_sql(name="umls", con=conn, if_exists="replace")
-
-    set_trace()
 
     log.info("Finished loading UMLS file.")
 
