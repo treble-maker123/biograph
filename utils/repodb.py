@@ -76,16 +76,18 @@ def build_edges(repodb: pd.DataFrame, nodes: List[Node], **kwargs) -> List[Edge]
         kind = repodb_edge[1]["status"]
 
         # skip the non-"Approved" ones
-        if kind != "Approved":
-            continue
+        if kind == "Approved":
+            kind = "treats"
+        else:
+            kind = "not_treats"
 
         src_node = node_dict[repodb_edge[1]["drug_id"]]
         dst_node = node_dict[repodb_edge[1]["ind_id"]]
-        forward_edge = Edge(src_node, dst_node, kind="treats", sources=["RepoDB"])
+        forward_edge = Edge(src_node, dst_node, kind=kind, sources=["RepoDB"])
         edges.append(forward_edge)
 
         if include_inverse:
-            backward_edge = Edge(dst_node, src_node, kind="treats_inv", sources=["RepoDB"])
+            backward_edge = Edge(dst_node, src_node, kind=kind + "_inv", sources=["RepoDB"])
             edges.append(backward_edge)
 
     if save_checkpoint:

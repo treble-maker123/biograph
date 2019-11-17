@@ -2,6 +2,13 @@
 <project version="4">
   <component name="PublishConfigData" autoUpload="Always" serverName="gypsum scratch">
     <serverData>
+      <paths name="blake">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/biograph" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
       <paths name="gypsum scratch">
         <serverdata>
           <mappings>
