@@ -3,6 +3,7 @@ import os
 from copy import deepcopy
 from typing import Union, List, Dict
 from pdb import set_trace
+from tqdm import tqdm
 
 from utils.node import Node
 
@@ -60,26 +61,16 @@ class Edge(object):
 
         with open(json_path, "r") as file:
             metadata_set = json.load(file)
+        node_hash_table = {hash(n): n for n in nodes}
         edges = []
 
-        for metadata in metadata_set:
-            source_node = list(filter(lambda x:
-                                      x.identifier == metadata["source"][0] and
-                                      x.name == metadata["source"][1] and
-                                      x.kind == metadata["source"][2], nodes))
-            destination_node = list(filter(lambda x:
-                                           x.identifier == metadata["destination"][0] and
-                                           x.name == metadata["destination"][1] and
-                                           x.kind == metadata["destination"][2], nodes))
-
-            assert len(source_node) == 1, f"Expecting 1 source node, found {len(source_node)}."
-            assert len(destination_node) == 1, f"Expecting 1 destination node, found {len(destination_node)}."
-
-            source_node = source_node[0]
-            destination_node = destination_node[0]
-
-            metadata["source"] = source_node
-            metadata["destination"] = destination_node
+        for metadata in tqdm(metadata_set):
+            metadata["source"] = node_hash_table[hash((metadata["source"][1],
+                                                       metadata["source"][0],
+                                                       metadata["source"][2]))]
+            metadata["destination"] = node_hash_table[hash((metadata["destination"][1],
+                                                            metadata["destination"][0],
+                                                            metadata["destination"][2]))]
 
             edge = cls(metadata=metadata)
             edges.append(edge)

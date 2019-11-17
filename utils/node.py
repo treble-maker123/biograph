@@ -2,6 +2,7 @@ import json
 import os
 from copy import deepcopy
 from typing import List, Union, Set, Dict
+from tqdm import tqdm
 
 
 class Node(object):
@@ -101,7 +102,7 @@ class Node(object):
             metadata_set = json.load(file)
         nodes = []
 
-        for metadata in metadata_set:
+        for metadata in tqdm(metadata_set):
             node = cls(metadata=metadata)
 
             assert node.identifier is not None

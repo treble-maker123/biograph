@@ -17,8 +17,8 @@ Node types:
 from utils import load_hetio, load_umls, load_disease_ontology, log
 from utils.hetio import build_nodes, build_edges
 
-UMLS_FILE_PATH = "MRCONSO.RRF"
-HETIO_FILE_PATH = "integrate/data/hetnet.json.bz2"
+UMLS_FILE_PATH = "data/MRCONSO.RRF"
+HETIO_FILE_PATH = "data/integrate/data/hetnet.json.bz2"
 
 force_build = False
 
