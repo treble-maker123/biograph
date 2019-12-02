@@ -3,6 +3,7 @@ import os
 from copy import deepcopy
 from typing import List, Union, Set, Dict
 from tqdm import tqdm
+import pandas as pd
 
 
 class Node(object):
@@ -19,6 +20,9 @@ class Node(object):
 
         if metadata is not None:
             self._metadata = metadata
+
+            if "drug_bank_ids" not in self._metadata:
+                self._metadata["drug_bank_ids"] = []
         else:
             self._metadata = {
                 "identifier": identifier,
@@ -28,7 +32,8 @@ class Node(object):
                 "license": license,
                 "source_url": source_url,
                 "mesh_ids": [],
-                "umls_cuis": []
+                "umls_cuis": [],
+                "drug_bank_ids": []
             }
 
     def __eq__(self, other: 'Node') -> bool:
@@ -52,7 +57,7 @@ class Node(object):
 
     @property
     def attributes(self) -> Set[str]:
-        return set([self.identifier] + self.mesh_ids + self.umls_cuis)
+        return set([self.identifier] + self.mesh_ids + self.umls_cuis + self.drug_bank_ids)
 
     @property
     def identifier(self) -> str:
@@ -74,6 +79,10 @@ class Node(object):
     def umls_cuis(self) -> List[str]:
         return self._metadata["umls_cuis"]
 
+    @property
+    def drug_bank_ids(self) -> List[str]:
+        return self._metadata["drug_bank_ids"]
+
     def add_mesh_id(self, mesh_id_or_ids: Union[str, List[str]]):
         if type(mesh_id_or_ids) == list:
             self._metadata["mesh_ids"] += mesh_id_or_ids
@@ -85,6 +94,12 @@ class Node(object):
             self._metadata["umls_cuis"] += cui_or_cuis
         else:
             self._metadata["umls_cuis"].append(cui_or_cuis)
+
+    def add_drug_bank_id(self, drug_bank_id_or_ids: Union[str, List[str]]):
+        if type(drug_bank_id_or_ids) == list:
+            self._metadata["drug_bank_ids"] += drug_bank_id_or_ids
+        else:
+            self._metadata["drug_bank_ids"].append(drug_bank_id_or_ids)
 
     @classmethod
     def serialize_bunch(cls, nodes: List['Node'], output_path: str) -> None:
