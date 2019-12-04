@@ -6,12 +6,12 @@ import json
 if __name__ == "__main__":
     graph_path = "outputs/ctd_graph.txt"
     test_path = "outputs/ctd_test.txt"
-    entity_vocab_path = "outputs/ctd_repodb/entity_vocab.json"
-    relation_vocab_path = "outputs/ctd_repodb/relation_vocab.json"
-    output_graph_path = "outputs/ctd_repodb/graph.txt"
-    output_train_path = "outputs/ctd_repodb/train.txt"
-    output_dev_path = "outputs/ctd_repodb/dev.txt"
-    output_test_path = "outputs/ctd_repodb/test.txt"
+    entity_vocab_path = "outputs/CTD_RepoDB/entity_vocab.json"
+    relation_vocab_path = "outputs/CTD_RepoDB/relation_vocab.json"
+    output_graph_path = "outputs/CTD_RepoDB/graph.txt"
+    output_train_path = "outputs/CTD_RepoDB/train.txt"
+    output_dev_path = "outputs/CTD_RepoDB/dev.txt"
+    output_test_path = "outputs/CTD_RepoDB/test.txt"
 
     with open(graph_path, "r") as file:
         graph = file.readlines()
@@ -38,8 +38,20 @@ if __name__ == "__main__":
     with open(relation_vocab_path, "w") as file:
         json.dump(relation_dict, file)
 
-    # train-dev-test split
+    # graph + training
     train = list(filter(lambda x: x.split("\t")[1] == "treats", graph))
+
+    # add inverse edges to all non-treats relations
+    non_train = list(filter(lambda x: x.split("\t")[1] != "treats", graph))
+    inv = []
+    for line in non_train:
+        triplet = line.splitlines()[0]
+        head, rel, tail = triplet.split("\t")
+        rel += "_inv"
+        inv.append("\t".join([tail, rel, head]) + "\n")
+    graph += inv
+
+    # dev + test
     test_treats = list(filter(lambda x: x.split("\t")[1] == "treats", test))
     test_not_treats = list(filter(lambda x: x.split("\t")[1] == "not_treats", test))
 
