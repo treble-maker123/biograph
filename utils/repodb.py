@@ -8,6 +8,7 @@ from tqdm import tqdm
 from utils.edge import Edge
 from utils.logger import log
 from utils.node import Node
+from pdb import set_trace
 
 NODES_CHECKPOINT = "outputs/repodb_nodes.checkpoint.json"
 EDGES_CHECKPOINT = "outputs/repodb_edges.checkpoint.json"
@@ -16,6 +17,7 @@ EDGES_CHECKPOINT = "outputs/repodb_edges.checkpoint.json"
 def build_nodes(repodb: pd.DataFrame, **kwargs) -> List[Node]:
     force_rebuild = kwargs.get("force_rebuild", False)
     save_checkpoint = kwargs.get("save_checkpoint", True)
+    umls = kwargs.get("umls", None)
 
     if not force_rebuild:
         if os.path.exists(NODES_CHECKPOINT):
@@ -28,12 +30,20 @@ def build_nodes(repodb: pd.DataFrame, **kwargs) -> List[Node]:
     drug_ids = repodb["drug_id"].unique()
     disease_ids = repodb["ind_id"].unique()
 
+    umls_drugs = umls[(umls["SAB"] == "DRUGBANK") & umls["CODE"].isin(drug_ids)]
+    umls_diseases = umls[(umls["SAB"] == "MSH") & umls["CODE"].isin(disease_ids)]
+
     for drug_id in drug_ids:
         match = repodb[repodb["drug_id"] == drug_id]
         drug_names = match["drug_name"].unique()
         assert len(drug_names) == 1
 
         node = Node(drug_id, drug_names[0], kind="Compound", sources=["RepoDB"])
+
+        umls_record_matches = umls_drugs[umls_drugs["CODE"] == drug_id]
+        umls_ids = list(umls_record_matches["CUI"].unique())
+        node.add_cui(umls_ids)
+
         nodes.append(node)
 
     for disease_id in disease_ids:
@@ -42,6 +52,14 @@ def build_nodes(repodb: pd.DataFrame, **kwargs) -> List[Node]:
         assert len(disease_names) == 1
 
         node = Node(disease_id, disease_names[0], kind="Disease", sources=["RepoDB"])
+
+        umls_matching_record = umls_diseases[umls_diseases["CODE"] == disease_id]
+        umls_ids = list(set(umls_matching_record["CUI"]))
+        mesh_ids = list(set(umls_matching_record["CODE"]))
+
+        node.add_cui(umls_ids)
+        node.add_mesh_id(mesh_ids)
+
         nodes.append(node)
 
     log.info(f"Built {len(nodes)} nodes from RepoDB.")

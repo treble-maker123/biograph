@@ -25,6 +25,7 @@ from tqdm import tqdm
 from utils import Node, Edge
 from utils.logger import log
 from pdb import set_trace
+from itertools import chain
 
 CHEMICAL_COLUMNS = [
     "ChemicalName", "ChemicalID", "CasRN", "Definition", "ParentIDs", "TreeNumbers", "ParentTreeNumbers", "Synonyms",
@@ -92,26 +93,26 @@ GENE_PATHWAY_CHECKPOINT = "outputs/ctd_gene_pathway_edges.checkpoint.json"
 EDGES_CHECKPOINT = "outputs/ctd_edges.checkpoint.json"
 
 
-def build_nodes() -> Tuple:
-    chemical_nodes = build_chemical_nodes()
-    disease_nodes = build_disease_nodes()
-    gene_nodes = build_gene_nodes()
-    pathway_nodes = build_pathway_nodes()
+def build_nodes(**kwargs) -> Tuple:
+    chemical_nodes = build_chemical_nodes(**kwargs)
+    disease_nodes = build_disease_nodes(**kwargs)
+    gene_nodes = build_gene_nodes(**kwargs)
+    pathway_nodes = build_pathway_nodes(**kwargs)
 
     return chemical_nodes, disease_nodes, gene_nodes, pathway_nodes
 
 
-def build_edges() -> List[Edge]:
+def build_edges(**kwargs) -> List[Edge]:
     chemical_nodes, disease_nodes, gene_nodes, pathway_nodes = \
-        build_nodes()
+        build_nodes(**kwargs)
 
     # chemical-gene
     log.info("Building chemical-gene edges...")
-    chem_gene_edges = build_chem_gene_edges(chemical_nodes, gene_nodes)
+    chem_gene_edges = build_chem_gene_edges(chemical_nodes, gene_nodes, **kwargs)
 
     # chemical-disease
     log.info("Building chemical-disease edges...")
-    chem_disease_edges = build_chem_disease_edges(chemical_nodes, disease_nodes)
+    chem_disease_edges = build_chem_disease_edges(chemical_nodes, disease_nodes, **kwargs)
 
     # [x] chemical-pathway
 
@@ -119,17 +120,20 @@ def build_edges() -> List[Edge]:
 
     # gene-disease
     log.info("Building gene-disease edges...")
-    gene_disease_edges = build_gene_disease_edges(gene_nodes, disease_nodes)
+    gene_disease_edges = build_gene_disease_edges(gene_nodes, disease_nodes, **kwargs)
 
     # gene-pathway
     log.info("Building gene-pathway edges...")
-    gene_pathway_edges = build_gene_pathway_edges(gene_nodes, pathway_nodes)
+    gene_pathway_edges = build_gene_pathway_edges(gene_nodes, pathway_nodes, **kwargs)
 
     return [*chem_gene_edges, *chem_disease_edges, *gene_disease_edges, *gene_pathway_edges]
 
 
 def build_chemical_nodes(**kwargs) -> List[Node]:
     log.info("Building chemical nodes...")
+
+    umls = kwargs.get("umls", None)
+
     chemicals = pd.read_csv(CHEMICALS_PATH, names=CHEMICAL_COLUMNS)
     nodes = []
 
@@ -160,7 +164,23 @@ def build_chemical_nodes(**kwargs) -> List[Node]:
 
         if not (drug_bank_ids == ""):
             node.add_drug_bank_id(drug_bank_ids)
+
         nodes.append(node)
+
+    identifiers = list(set(map(lambda x: x.identifier, nodes)))
+    drug_bank_ids = list(chain(*list(map(lambda x: x.drug_bank_ids, nodes))))
+    umls = umls[umls["CODE"].isin(identifiers) | umls["CODE"].isin(drug_bank_ids)]
+
+    log.info("Adding UMLS metadata to nodes")
+
+    for node in tqdm(nodes):
+        umls_matching_records = umls[(umls["CODE"] == node.identifier) | umls["CODE"].isin(node.drug_bank_ids)]
+        if len(umls_matching_records) > 0:
+            umls_ids = list(set(umls_matching_records["CUI"]))
+            node.add_cui(umls_ids)
+        else:
+            tqdm.write("No UMLS records.")
+            continue
 
     if kwargs.get("save_checkpoint", True):
         log.info("Check-pointing nodes...")
@@ -171,6 +191,9 @@ def build_chemical_nodes(**kwargs) -> List[Node]:
 
 def build_disease_nodes(**kwargs) -> List[Node]:
     log.info("Building disease nodes...")
+
+    umls = kwargs.get("umls", None)
+
     diseases = pd.read_csv(DISEASES_PATH, names=DISEASE_COLUMNS)
     nodes = []
 
@@ -196,6 +219,22 @@ def build_disease_nodes(**kwargs) -> List[Node]:
             raise ValueError(f"Unrecognized disease prefix: {disease_prefix}, expecting \"MESH\" or \"OMIM\".")
 
         nodes.append(node)
+
+    identifiers = list(set(map(lambda x: x.identifier, nodes)))
+    umls = umls[(umls["SAB"] == "MSH") & umls["CODE"].isin(identifiers)]
+
+    log.info("Adding UMLS metadata to nodes")
+
+    for node in tqdm(nodes):
+        umls_matching_records = umls[umls["CODE"] == node.identifier]
+        if len(umls_matching_records) > 0:
+            umls_ids = list(set(umls_matching_records["CUI"]))
+            mesh_ids = list(set(umls_matching_records["CODE"]))
+            node.add_cui(umls_ids)
+            node.add_mesh_id(mesh_ids)
+        else:
+            tqdm.write("No UMLS records.")
+            continue
 
     if kwargs.get("save_checkpoint", True):
         log.info("Check-pointing nodes...")
@@ -280,7 +319,7 @@ def build_chem_gene_edges(chem_nodes: List[Node], gene_nodes: List[Node], **kwar
             continue
 
         # http://ctdbase.org/help/ixnQueryHelp.jsp;jsessionid=C6E8588917BC36AE8CB619D199219134#actionType
-        relations = row["InteractionActions"].split("|")
+        relations = list(set(row["InteractionActions"].split("|")))
 
         for rel in relations:
             edge = Edge(source=chem_node, destination=gene_node, kind=rel, sources=["CTD"])

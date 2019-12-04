@@ -1,6 +1,9 @@
 from utils.ctd import build_edges
 from pdb import set_trace
+from utils import load_umls
 
 
 if __name__ == "__main__":
-    edges = build_edges()
+    umls = load_umls()
+
+    edges = build_edges(umls=umls)
